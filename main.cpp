@@ -1,19 +1,38 @@
-#include "emscripten/emscripten.h"
+#include <emscripten/emscripten.h>
+#include <emscripten/bind.h>
 #include "02_BitBoard.h"
 
+class Game;
+
 extern "C" {
-void run();
+Game* newGame();
+int getGameTurn(Game* game);
+void playHumanHand(Game* game, int column);
 }  // extern "C"
 
-EMSCRIPTEN_KEEPALIVE
-void run() {
-    using std::cout;
-    using std::endl;
-    auto ais = std::array<StringAIPair, 2>{
-        StringAIPair("mctsActionBitWithTimeThreshold 1ms", [](const State &state)
-                     { return mctsActionBitWithTimeThreshold(state, 1); }),
-        StringAIPair("mctsActionWithTimeThreshold 1ms", [](const State &state)
-                     { return mctsActionWithTimeThreshold(state, 1); }),
-    };
-    testFirstPlayerWinRate(ais, 100);
+class Game {
+private:
+    State state;
+    int turn;
+
+public:
+    Game() : state() {
+        turn = 0;
+    }
+
+    int getTurn() const { return turn; }
+
+    void playHand(int column) {
+        // TODO:
+    }
+};
+
+EMSCRIPTEN_BINDINGS(Game)
+{
+    using namespace emscripten;
+    class_<Game>("Game")
+        .constructor()
+        .property("turn", &Game::getTurn)
+        .function("playHand", &Game::playHand)
+        ;
 }
