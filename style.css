@@ -1,0 +1,26 @@
+.grid {
+    width: 100px;
+    height: 100px;
+    border: 1px solid black;
+}
+.action-button {
+    width: 100%;
+}
+.cell {
+    width: 80%;
+    height: 80%;
+    margin: auto;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.win {
+    background-color: #8f8;
+}
+.p0 {
+    background-color: #f00;
+}
+.p1 {
+    background-color: #fc0;
+}
