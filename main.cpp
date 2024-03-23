@@ -67,6 +67,10 @@ public:
     void playHand(int action) {
         state.advance(action);
     }
+
+    int searchHand(int time_threshold) {
+        return mctsActionBitWithTimeThreshold(state, time_threshold);
+    }
 };
 
 EMSCRIPTEN_BINDINGS(Game)
@@ -81,5 +85,6 @@ EMSCRIPTEN_BINDINGS(Game)
         .function("getBoard", &Game::getBoard, allow_raw_pointers())
         .function("getLegalActions", &Game::getLegalActions)
         .function("playHand", &Game::playHand)
+        .function("searchHand", &Game::searchHand)
         ;
 }

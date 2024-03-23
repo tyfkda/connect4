@@ -50,11 +50,10 @@ class App {
             cell.textContent = ''
         }
         this.setUiForNextState()
-
-        document.getElementById('status').textContent = ''
     }
 
     setUiForNextState() {
+        const status = document.getElementById('status')
         this.showBoard()
 
         if (this.game.isDone()) {
@@ -63,12 +62,19 @@ class App {
             return
         }
 
-        // if (this.game.turn == 0) {
+        if (this.game.turn == 0) {
             const legalActions = this.game.getLegalActions()
             this.setActionButtons(legalActions)
-        // } else {
-        //     this.setActionButtons(0)
-        // }
+            status.textContent = 'Your turn'
+        } else {
+            status.textContent = 'Thinking...'
+            this.setActionButtons(0)
+
+            setTimeout(() => {
+                const action = this.game.searchHand(1000)
+                this.playHand(action)
+            }, 100)
+        }
     }
 
     showResult() {
