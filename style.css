@@ -1,10 +1,24 @@
+body {
+    user-select: none;
+    touch-action: manipulation;
+    overscroll-behavior-y: none;
+}
+.board {
+    display: flex;
+}
 .grid {
     width: 100px;
     height: 100px;
+    margin: 1px;
     border: 1px solid black;
+    align-content: center;
 }
-.action-button {
-    width: 100%;
+.column {
+    cursor: pointer;
+}
+.column.disabled {
+    cursor: auto;
+    pointer-events: none;
 }
 .cell {
     width: 80%;

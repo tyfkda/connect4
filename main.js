@@ -66,6 +66,7 @@ class App {
             const legalActions = this.game.getLegalActions()
             this.setActionButtons(legalActions)
             status.textContent = 'Your turn'
+            this.legalActions = legalActions
         } else {
             status.textContent = 'Thinking...'
             this.setActionButtons(0)
@@ -94,7 +95,7 @@ class App {
                 for (;; r += dr, c += dc) {
                     if (r < 0 || r >= H || c < 0 || c >= W || buf[r * W + c] !== u)
                         break
-                    const cell = this.boardCells[(H - 1 - r) * W + c]
+                    const cell = this.boardCells[(H - 1 - r) + c * H]
                     cell.parentElement.classList.add('win')
                 }
             })
@@ -107,7 +108,7 @@ class App {
 
         for (let i = 0; i < H; ++i) {
             for (let j = 0; j < W; ++j) {
-                const cell = this.boardCells[(H -  1 - i) * W + j]
+                const cell = this.boardCells[(H -  1 - i) + j * H]
                 const value = buf[i * W + j]
                 cell.className = 'cell'
                 if (value === 1) {
@@ -115,17 +116,20 @@ class App {
                 } else if (value === 2) {
                     cell.classList.add('p1')
                 }
-                const order = this.handOrders[(H -  1 - i) * W + j]
+                const order = this.handOrders[(H -  1 - i) + j * H]
                 cell.textContent = order >= 0 ? `${order + 1}` : ''
             }
         }
     }
 
     setActionButtons(param) {
-        for (let i = 0; i < this.actionButtons.length; ++i) {
-            const button = this.actionButtons[i]
+        for (let i = 0; i < this.boardColumns.length; ++i) {
+            const column = this.boardColumns[i]
             const disabled = (param & (1 << i)) === 0
-            button.disabled = disabled
+            if (disabled)
+                column.classList.add('disabled')
+            else
+                column.classList.remove('disabled')
         }
     }
 
@@ -133,7 +137,7 @@ class App {
         this.game.playHand(action)
 
         for (let i = 0; i < H; ++i) {
-            const index = (H - 1 - i) * W + action
+            const index = (H - 1 - i) + action * H
             if (this.handOrders[index] < 0) {
                 this.handOrders[index] = this.step++
                 break
@@ -149,45 +153,37 @@ class App {
 
     createBoardElement() {
         const folder = document.getElementById('board-folder')
-        const table = document.createElement('table')
+        const table = document.createElement('div')
         table.className = 'board'
+        const boardColumns = []
         const boardCells = []
-        for (let i = 0; i < H; ++i) {
-            const tr = document.createElement('tr')
-            for (let j = 0; j < W; ++j) {
-                const td = document.createElement('td')
+        for (let j = 0; j < W; ++j) {
+            const column = document.createElement('div')
+            column.className = 'column disabled'
+            boardColumns.push(column)
+            for (let i = 0; i < H; ++i) {
+                const td = document.createElement('div')
                 td.className = 'grid'
                 const cell = document.createElement('div')
                 cell.className = 'cell'
                 td.appendChild(cell)
-                tr.appendChild(td)
+                column.appendChild(td)
                 boardCells.push(cell)
             }
-            table.appendChild(tr)
-        }
+            table.appendChild(column)
 
-        // ボタン
-        const actionButtons = []
-        const tr = document.createElement('tr')
-        for (let j = 0; j < W; ++j) {
-            const td = document.createElement('td')
-            const button = document.createElement('button')
-            button.className = `action-button action${j}`
-            button.textContent = `${j + 1}`
-            button.disabled = true
-            button.addEventListener('click', () => {
-                this.onClickedAction(j)
+            const action = j
+            column.addEventListener('click', () => {
+                if (this.game.isDone() || !(this.legalActions & (1 << action)))
+                    return
+                this.onClickedAction(action)
             })
-            td.appendChild(button)
-            tr.appendChild(td)
-            actionButtons.push(button)
         }
-        table.appendChild(tr)
 
         folder.appendChild(table)
 
         this.boardCells = boardCells
-        this.actionButtons = actionButtons
+        this.boardColumns = boardColumns
 
         this.handOrders = new Int8Array(boardCells.length)
     }
