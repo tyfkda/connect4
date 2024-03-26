@@ -370,6 +370,17 @@ public:
         return winning_status_ != WinningStatus::NONE;
     }
 
+    int getCell(int x, int y) const
+    {
+        int index = x * (H + 1) + y;
+        if (((my_board_ >> index) & 1ULL) != 0) {
+            return is_first_ ? 1 : 2;
+        } else if ((((all_board_ ^ my_board_) >> index) & 1ULL) != 0) {
+            return is_first_ ? 2 : 1;
+        }
+        return 0;
+    }
+
     void advance(const int action)
     {
         this->my_board_ ^= this->all_board_; // 敵の視点に切り替える
@@ -433,6 +444,8 @@ public:
 
         return ss.str();
     }
+
+    bool isFirst() const  { return is_first_; }
 };
 
 using State = ConnectFourState;
@@ -640,11 +653,11 @@ namespace montecarlo_bit
         Node(const ConnectFourStateByBitSet &state) : state_(state), w_(0), n_(0) {}
 
         // ノードの評価を行う
-        double evaluate()
+        double evaluate(int for_draw, double CCC)
         {
+            double value;
             if (this->state_.isDone())
             {
-                double value = 0.5;
                 switch (this->state_.getWinningStatus())
                 {
                 case (WinningStatus::WIN):
@@ -654,31 +667,28 @@ namespace montecarlo_bit
                     value = 0.;
                     break;
                 default:
+                    value = 0.5;
                     break;
                 }
-                this->w_ += value;
-                ++this->n_;
-                return value;
-            }
+            } else
             if (this->child_nodes_.empty())
             {
                 ConnectFourStateByBitSet state_copy = this->state_;
-                double value = playout(&state_copy);
-                this->w_ += value;
-                ++this->n_;
-
-                if (this->n_ == EXPAND_THRESHOLD)
+                value = playout(&state_copy);
+                if (this->n_ + 1 >= EXPAND_THRESHOLD)
                     this->expand();
-
-                return value;
             }
             else
             {
-                double value = 1. - this->nextChildNode().evaluate();
-                this->w_ += value;
-                ++this->n_;
-                return value;
+                value = 1. - this->nextChildNode(for_draw, CCC).evaluate(-for_draw, CCC);
             }
+
+            double pvalue = 1.0 - value;
+            if (for_draw < 0)
+                pvalue = (pvalue > 0.5 ? 1.0 - pvalue : pvalue) * 2;
+            this->w_ += pvalue;
+            ++this->n_;
+            return value;
         }
 
         // ノードを展開する
@@ -694,7 +704,7 @@ namespace montecarlo_bit
         }
 
         // どのノードを評価するか選択する
-        Node &nextChildNode()
+        Node &nextChildNode(int for_draw, double CCC)
         {
             for (auto &child_node : this->child_nodes_)
             {
@@ -711,7 +721,8 @@ namespace montecarlo_bit
             for (int i = 0; i < this->child_nodes_.size(); i++)
             {
                 const auto &child_node = this->child_nodes_[i];
-                double ucb1_value = 1. - child_node.w_ / child_node.n_ + (double)C * std::sqrt(2. * std::log(t) / child_node.n_);
+                double value = child_node.w_ / child_node.n_;
+                double ucb1_value = value + (double)CCC * std::sqrt(2. * std::log(t) / child_node.n_);
                 if (ucb1_value > best_value)
                 {
                     best_action_index = i;
@@ -720,21 +731,25 @@ namespace montecarlo_bit
             }
             return this->child_nodes_[best_action_index];
         }
+
+        const ConnectFourStateByBitSet& getState() const  { return state_; }
+        double getW() const { return w_; }
     };
 
     // 制限時間(ms)を指定してMCTSで行動を決定する
-    int mctsActionBitWithTimeThreshold(const State &state, const int64_t time_threshold)
+    int mctsActionBitWithTimeThreshold(const State &state, const int64_t time_threshold, int for_draw, double CCC)
     {
         Node root_node = Node(ConnectFourStateByBitSet(state));
         root_node.expand();
         auto time_keeper = TimeKeeper(time_threshold);
-        for (int cnt = 0;; cnt++)
+        int cnt;
+        for (cnt = 0;; cnt++)
         {
             if (time_keeper.isTimeOver())
             {
                 break;
             }
-            root_node.evaluate();
+            root_node.evaluate(for_draw, CCC);
         }
         auto legal_actions = state.legalActions();
 

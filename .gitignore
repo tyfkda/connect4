@@ -1,3 +1,4 @@
 *.o
 /connectfour.js
 /connectfour.wasm
+/cpptest

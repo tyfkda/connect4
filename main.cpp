@@ -71,13 +71,17 @@ public:
         updateState();
     }
 
-    int searchHand(int time_threshold) {
-        return mctsActionBitWithTimeThreshold(state, time_threshold);
+    int searchHand(int time_threshold, bool for_draw_) {
+        int for_draw = for_draw_ ? 1 : 0;
+        double CCC = for_draw ? 3 : 1;
+        return mctsActionBitWithTimeThreshold(state, time_threshold, for_draw ? 1 : 0, CCC);
     }
 
-    void proceedMcts(int count, intptr_t ptr) {
+    void proceedMcts(int count, bool for_draw_, intptr_t ptr) {
+        int for_draw = for_draw_ ? 1 : 0;
+        double CCC = for_draw ? 3 : 1;
         for (int i = 0; i < count; ++i) {
-            node.evaluate();
+            node.evaluate(for_draw, CCC);
         }
 
         int32_t* dst = reinterpret_cast<int32_t*>(ptr);

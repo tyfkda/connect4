@@ -90,7 +90,7 @@ class App {
 
             if (this.players[turn].assist) {
                 const f = () => {
-                    this.updateGoodHand()
+                    this.updateGoodHand(turn)
                     this.rafId = requestAnimationFrame(f)
                 }
                 this.rafId = requestAnimationFrame(f)
@@ -100,7 +100,7 @@ class App {
             this.setActionButtons(0)
 
             setTimeout(() => {
-                const action = this.game.searchHand(this.players[turn].comTimeLimit)
+                const action = this.game.searchHand(this.players[turn].comTimeLimit, this.players[turn].forDraw)
                 this.playHand(turn, action)
             }, 100)
         }
@@ -235,8 +235,9 @@ class App {
     }
 
 
-    updateGoodHand() {
-        this.game.proceedMcts(10000, this.ptr2)
+    updateGoodHand(turn) {
+        const forDraw = this.players[turn].forDraw
+        this.game.proceedMcts(10000, forDraw, this.ptr2)
         const counts = Module.HEAPU32.subarray(this.ptr2 >> 2, (this.ptr2 >> 2) + (Uint32Array.BYTES_PER_ELEMENT * W))
 
         let sum = 0
@@ -276,9 +277,11 @@ async function main() {
             ComTimeThresholds,
             p0player: 'human',
             p0assist: false,
+            p0draw: false,
             com0timeLimit: 1000,
             p1player: 'com',
             p1assist: false,
+            p1draw: false,
             com1timeLimit: 1000,
             ready: false,
             log: '',
@@ -289,6 +292,8 @@ async function main() {
                 this.$watch('p1player', (value) => app.players[1].com = value === 'com')
                 this.$watch('p0assist', (value) => app.players[0].assist = value)
                 this.$watch('p1assist', (value) => app.players[1].assist = value)
+                this.$watch('p0draw', (value) => app.players[0].forDraw = value)
+                this.$watch('p1draw', (value) => app.players[1].forDraw = value)
                 this.$watch('com0timeLimit', (value) => app.players[0].comTimeLimit = value)
                 this.$watch('com1timeLimit', (value) => app.players[1].comTimeLimit = value)
                 resolveAlpine()
@@ -297,8 +302,8 @@ async function main() {
             start() {
                 this.log = ''
                 step = 0
-                app.setPlayer(0, { com: this.p0player === 'com', assist: this.p0assist, comTimeLimit: this.com0timeLimit })
-                app.setPlayer(1, { com: this.p1player === 'com', assist: this.p1assist, comTimeLimit: this.com1timeLimit })
+                app.setPlayer(0, { com: this.p0player === 'com', assist: this.p0assist, comTimeLimit: this.com0timeLimit, forDraw: this.p0draw})
+                app.setPlayer(1, { com: this.p1player === 'com', assist: this.p1assist, comTimeLimit: this.com1timeLimit, forDraw: this.p1draw})
                 app.start({
                     callback: (params) => {
                         switch (params.event) {

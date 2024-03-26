@@ -24,6 +24,7 @@
                         </template>
                     </select>
                 </span>
+                <span x-show="p0player=='com' || p0assist"><input id="p0draw" type="checkbox" x-model="p0draw" /><label for="p0draw">引き分け狙い</label></span>
             </div>
             <div>
                 プレイヤー２：<select x-model="p1player">
@@ -39,8 +40,9 @@
                         </template>
                     </select>
                 </span>
+                <span x-show="p1player=='com' || p1assist"><input id="p1draw" type="checkbox" x-model="p1draw" /><label for="p1draw">引き分け狙い</label></span>
             </div>
-        <button @click="start()" :disabled="!ready">Start</button> <br />
+            <button @click="start()" :disabled="!ready">Start</button> <br />
         </div>
         <div id="status"></div>
         <div id="log-holder"><pre id="log" x-text="log"></pre></div>
