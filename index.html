@@ -7,11 +7,46 @@
     <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body>
-    <div id="board-folder"></div>
-    <button id="start-button">Start</button> <br />
-    <div id="status"></div>
+    <div x-data="createInitialData()">
+        <div id="board-folder"></div>
+        <div>
+            <div>
+                プレイヤー１：<select x-model="p0player">
+                    <option value="human">人間</option>
+                    <option value="com">COM</option>
+                </select>
+                <span x-show="p0player=='human'"><input id="p0assist" type="checkbox" x-model="p0assist" /><label for="p0assist">アシスト</label></span>
+                <span x-show="p0player=='com'">
+                    思考時間
+                    <select x-model="com0timeLimit">
+                        <template x-for="opt in ComTimeThresholds" :key="opt.text">
+                            <option :value="opt.value" x-text="opt.text" :selected="com0timeLimit==opt.value"></option>
+                        </template>
+                    </select>
+                </span>
+            </div>
+            <div>
+                プレイヤー２：<select x-model="p1player">
+                    <option value="human">人間</option>
+                    <option value="com">COM</option>
+                </select>
+                <span x-show="p1player=='human'"><input id="p1assist" type="checkbox" x-model="p1assist" /><label for="p1assist">アシスト</label></span>
+                <span x-show="p1player=='com'">
+                    思考時間
+                    <select x-model="com1timeLimit">
+                        <template x-for="opt in ComTimeThresholds" :key="opt.text">
+                            <option :value="opt.value" x-text="opt.text" :selected="com1timeLimit==opt.value"></option>
+                        </template>
+                    </select>
+                </span>
+            </div>
+        <button @click="start()" :disabled="!ready">Start</button> <br />
+        </div>
+        <div id="status"></div>
+    </div>
 
-    <script src="connectfour.js"></script>
     <script src="main.js"></script>
+    <script src="connectfour.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.13.7/cdn.js" integrity="sha512-RvlcAHDQH6uKcb1vPjIKzztHySEHd0T7gpAMZ/Mg22UjeKMJRlZtTLC2iBoZ3l+CSiW+TGapC6+F4YKZ9PKqVw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </body>
 </html>

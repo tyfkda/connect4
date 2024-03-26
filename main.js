@@ -39,8 +39,14 @@ class App {
 
         this.createBoardElement()
 
-        const startButton = document.getElementById('start-button')
-        startButton.addEventListener('click', this.start.bind(this))
+        this.players = [
+            { com: false, assist: true },
+            { com: true },
+        ]
+    }
+
+    setPlayer(index, params) {
+        this.players[index] = params
     }
 
     start() {
@@ -74,26 +80,29 @@ class App {
             return
         }
 
-        // if (this.game.turn == 0) {
+        const turn = this.game.turn
+        if (!this.players[turn].com) {
             const legalActions = this.game.getLegalActions()
             this.setActionButtons(legalActions)
-            status.textContent = `Player ${this.game.turn + 1}'s turn`
+            status.textContent = `Player ${turn + 1}'s turn`
             this.legalActions = legalActions
-        // } else {
-        //     status.textContent = 'Thinking...'
-        //     this.setActionButtons(0)
 
-        //     setTimeout(() => {
-        //         const action = this.game.searchHand(1000)
-        //         this.playHand(action)
-        //     }, 100)
-        // }
+            if (this.players[turn].assist) {
+                const f = () => {
+                    this.updateGoodHand()
+                    this.rafId = requestAnimationFrame(f)
+                }
+                this.rafId = requestAnimationFrame(f)
+            }
+        } else {
+            status.textContent = 'Thinking...'
+            this.setActionButtons(0)
 
-        const f = () => {
-            this.updateGoodHand()
-            this.rafId = requestAnimationFrame(f)
+            setTimeout(() => {
+                const action = this.game.searchHand(this.players[turn].comTimeLimit)
+                this.playHand(action)
+            }, 100)
         }
-        this.rafId = requestAnimationFrame(f)
     }
 
     showResult() {
@@ -241,6 +250,65 @@ class App {
     }
 }
 
-Module.onRuntimeInitialized = async () => {
-    new App()
+const ComTimeThresholds = [
+    { value:   500, text: '0.5秒' },
+    { value:  1000, text: '1秒' },
+    { value:  3000, text: '3秒' },
+    { value:  6000, text: '6秒' },
+    { value: 10000, text: '10秒' },
+]
+
+async function main() {
+    let resolveAlpine = () => { throw 'error' }
+
+    let proxy = null
+    let app = null
+    globalThis.createInitialData = () => {
+        return {
+            ComTimeThresholds,
+            p0player: 'human',
+            p0assist: false,
+            com0timeLimit: 1000,
+            p1player: 'com',
+            p1assist: false,
+            com1timeLimit: 1000,
+            ready: false,
+
+            init() {
+                proxy = this
+                this.$watch('p0player', (value) => app.players[0].com = value === 'com')
+                this.$watch('p1player', (value) => app.players[1].com = value === 'com')
+                this.$watch('p0assist', (value) => app.players[0].assist = value)
+                this.$watch('p1assist', (value) => app.players[1].assist = value)
+                this.$watch('com0timeLimit', (value) => app.players[0].comTimeLimit = value)
+                this.$watch('com1timeLimit', (value) => app.players[1].comTimeLimit = value)
+                resolveAlpine()
+            },
+
+            start() {
+                app.setPlayer(0, { com: this.p0player === 'com', assist: this.p0assist, comTimeLimit: this.com0timeLimit })
+                app.setPlayer(1, { com: this.p1player === 'com', assist: this.p1assist, comTimeLimit: this.com1timeLimit })
+                app.start()
+            },
+
+            assistClicked(player) {
+                console.log(`assist clicked: ${player}: ${this.p0assist}, ${this.p1assist}`)
+            }
+        }
+    }
+
+    const promises = [
+        new Promise((resolve) => {
+            Module.onRuntimeInitialized = () => {
+                resolve()
+            }
+        }),
+        new Promise((resolve) => resolveAlpine = resolve)
+    ]
+    await Promise.all(promises)
+    app = new App()
+    proxy.ready = true
 }
+
+var Module = typeof Module != "undefined" ? Module : {}
+main()
