@@ -34,6 +34,8 @@ class App {
     constructor() {
         this.game = new Module.Game()
         this.ptr = Module._malloc(W * H * Uint8Array.BYTES_PER_ELEMENT)
+        this.ptr2 = Module._malloc(W * Uint32Array.BYTES_PER_ELEMENT)
+        this.rafId = -1
 
         this.createBoardElement()
 
@@ -56,26 +58,42 @@ class App {
         const status = document.getElementById('status')
         this.showBoard()
 
+        for (let i = 0; i < this.probabilityBars.length; ++i) {
+            const bar = this.probabilityBars[i]
+            bar.style.height = '0'
+        }
+
+        if (this.rafId >= 0) {
+            cancelAnimationFrame(this.rafId)
+            this.rafId = -1
+        }
+
         if (this.game.isDone()) {
             this.setActionButtons(0)
             this.showResult()
             return
         }
 
-        if (this.game.turn == 0) {
+        // if (this.game.turn == 0) {
             const legalActions = this.game.getLegalActions()
             this.setActionButtons(legalActions)
-            status.textContent = 'Your turn'
+            status.textContent = `Player ${this.game.turn + 1}'s turn`
             this.legalActions = legalActions
-        } else {
-            status.textContent = 'Thinking...'
-            this.setActionButtons(0)
+        // } else {
+        //     status.textContent = 'Thinking...'
+        //     this.setActionButtons(0)
 
-            setTimeout(() => {
-                const action = this.game.searchHand(1000)
-                this.playHand(action)
-            }, 100)
+        //     setTimeout(() => {
+        //         const action = this.game.searchHand(1000)
+        //         this.playHand(action)
+        //     }, 100)
+        // }
+
+        const f = () => {
+            this.updateGoodHand()
+            this.rafId = requestAnimationFrame(f)
         }
+        this.rafId = requestAnimationFrame(f)
     }
 
     showResult() {
@@ -157,19 +175,30 @@ class App {
         table.className = 'board'
         const boardColumns = []
         const boardCells = []
+        const probabilityBars = []
         for (let j = 0; j < W; ++j) {
             const column = document.createElement('div')
             column.className = 'column disabled'
             boardColumns.push(column)
+
+            const inner = document.createElement('div')
+            column.appendChild(inner)
+
             for (let i = 0; i < H; ++i) {
                 const td = document.createElement('div')
                 td.className = 'grid'
                 const cell = document.createElement('div')
                 cell.className = 'cell'
                 td.appendChild(cell)
-                column.appendChild(td)
+                inner.appendChild(td)
                 boardCells.push(cell)
             }
+
+            const bar = document.createElement('div')
+            bar.className = 'assist-bar'
+            column.appendChild(bar)
+            probabilityBars.push(bar)
+
             table.appendChild(column)
 
             const action = j
@@ -184,8 +213,31 @@ class App {
 
         this.boardCells = boardCells
         this.boardColumns = boardColumns
+        this.probabilityBars = probabilityBars
 
         this.handOrders = new Int8Array(boardCells.length)
+    }
+
+
+    updateGoodHand() {
+        this.game.proceedMcts(10000, this.ptr2)
+        const counts = Module.HEAPU32.subarray(this.ptr2 >> 2, (this.ptr2 >> 2) + (Uint32Array.BYTES_PER_ELEMENT * W))
+
+        let sum = 0
+        let maxval = 0
+        let maxidx = 0
+        for (let i = 0; i < W; ++i) {
+            sum += counts[i]
+            if (counts[i] > maxval) {
+                maxval = counts[i]
+                maxidx = i
+            }
+        }
+        for (let i = 0; i < W; ++i) {
+            const bar = this.probabilityBars[i]
+            bar.style.height = `${counts[i] / sum * 100}%`
+            bar.style.backgroundColor = i === maxidx ? '#00f' : '#008'
+        }
     }
 }
 

@@ -14,12 +14,20 @@ body {
     align-content: center;
 }
 .column {
+    display: flex;
+    align-items: end;
     cursor: pointer;
 }
 .column.disabled {
     cursor: auto;
     pointer-events: none;
 }
+.assist-bar {
+    width: 8px;
+    height: 0;
+    margin-right: 4px;
+}
+
 .cell {
     width: 80%;
     height: 80%;
