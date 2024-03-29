@@ -43,6 +43,16 @@ public:
 constexpr const int H = 6; // 迷路の高さ
 constexpr const int W = 7; // 迷路の幅
 
+constexpr uint64_t filledBoardBits(int i) {
+    return i <= 0 ? 0 : ((filledBoardBits(i - 1) << (H + 1)) | ((1ULL << H) - 1));
+}
+constexpr uint64_t FILLED_BOARD_BITS = filledBoardBits(W);
+
+constexpr uint64_t possibleBoardBits(int i) {
+    return i <= 0 ? 0 : ((possibleBoardBits(i - 1) << (H + 1)) | 1ULL);
+}
+constexpr uint64_t POSSIBLE_BOARD_BITS = possibleBoardBits(W);
+
 using ScoreType = int64_t;
 constexpr const ScoreType INF = 1000000000LL;
 
@@ -305,20 +315,20 @@ private:
     bool isWinner(const uint64_t board)
     {
         // 横方向の連結判定
-        uint64_t tmp_board = board & (board >> 7);
-        if ((tmp_board & (tmp_board >> 14)) != 0)
+        uint64_t tmp_board = board & (board >> (H + 1));
+        if ((tmp_board & (tmp_board >> ((H + 1) * 2))) != 0)
         {
             return true;
         }
         // "\"方向の連結判定
-        tmp_board = board & (board >> 6);
-        if ((tmp_board & (tmp_board >> 12)) != 0)
+        tmp_board = board & (board >> H);
+        if ((tmp_board & (tmp_board >> (H * 2))) != 0)
         {
             return true;
         }
         // "／"方向の連結判定
-        tmp_board = board & (board >> 8);
-        if ((tmp_board & (tmp_board >> 16)) != 0)
+        tmp_board = board & (board >> (H + 2));
+        if ((tmp_board & (tmp_board >> ((H + 2) * 2))) != 0)
         {
             return true;
         }
@@ -364,9 +374,9 @@ public:
     {
         this->my_board_ ^= this->all_board_; // 敵の視点に切り替える
         is_first_ = !is_first_;
-        uint64_t new_all_board = this->all_board_ | (this->all_board_ + (1ULL << (action * 7)));
+        uint64_t new_all_board = this->all_board_ | (this->all_board_ + (1ULL << (action * (H + 1))));
         this->all_board_ = new_all_board;
-        uint64_t filled = 0b0111111011111101111110111111011111101111110111111ULL;
+        constexpr uint64_t filled = FILLED_BOARD_BITS;
 
         if (isWinner(this->my_board_ ^ this->all_board_))
         {
@@ -380,15 +390,15 @@ public:
     std::vector<int> legalActions() const
     {
         std::vector<int> actions;
-        uint64_t possible = this->all_board_ + 0b0000001000000100000010000001000000100000010000001ULL;
-        uint64_t filter = 0b0111111;
+        uint64_t possible = this->all_board_ + POSSIBLE_BOARD_BITS;
+        uint64_t filter = (1ULL << H) - 1;
         for (int x = 0; x < W; x++)
         {
             if ((filter & possible) != 0)
             {
                 actions.emplace_back(x);
             }
-            filter <<= 7;
+            filter <<= H + 1;
         }
         return actions;
     }
