@@ -46,3 +46,15 @@ body {
 .p1 {
     background-color: #fc0;
 }
+#log-holder {
+    height: 100px;
+    border: solid 1px gray;
+    overflow-x: hidden;
+    overflow-y: scroll;
+    margin: 8px;
+    padding: 4px;
+    border-radius: 4px;
+}
+#log {
+    margin: 0;
+}

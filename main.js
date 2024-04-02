@@ -49,7 +49,8 @@ class App {
         this.players[index] = params
     }
 
-    start() {
+    start(options) {
+        this.options = options
         this.step = 0
         this.handOrders.fill(-1)
         this.game.start()
@@ -100,7 +101,7 @@ class App {
 
             setTimeout(() => {
                 const action = this.game.searchHand(this.players[turn].comTimeLimit)
-                this.playHand(action)
+                this.playHand(turn, action)
             }, 100)
         }
     }
@@ -160,8 +161,9 @@ class App {
         }
     }
 
-    playHand(action) {
+    playHand(turn, action) {
         this.game.playHand(action)
+        this.printLog(turn, action)
 
         for (let i = 0; i < H; ++i) {
             const index = (H - 1 - i) + action * H
@@ -175,7 +177,12 @@ class App {
     }
 
     onClickedAction(action) {
-        this.playHand(action)
+        const turn = this.game.turn
+        this.playHand(turn, action)
+    }
+
+    printLog(turn, action) {
+        this.options.callback({event: 'onAction', turn, action})
     }
 
     createBoardElement() {
@@ -263,6 +270,7 @@ async function main() {
 
     let proxy = null
     let app = null
+    let step = 0
     globalThis.createInitialData = () => {
         return {
             ComTimeThresholds,
@@ -273,6 +281,7 @@ async function main() {
             p1assist: false,
             com1timeLimit: 1000,
             ready: false,
+            log: '',
 
             init() {
                 proxy = this
@@ -286,9 +295,24 @@ async function main() {
             },
 
             start() {
+                this.log = ''
+                step = 0
                 app.setPlayer(0, { com: this.p0player === 'com', assist: this.p0assist, comTimeLimit: this.com0timeLimit })
                 app.setPlayer(1, { com: this.p1player === 'com', assist: this.p1assist, comTimeLimit: this.com1timeLimit })
-                app.start()
+                app.start({
+                    callback: (params) => {
+                        switch (params.event) {
+                        case 'onAction':
+                            ++step
+                            this.log += `#${step}, Player ${params.turn + 1}: Column ${params.action + 1}\n`
+                            this.$nextTick(() => {
+                                const log = document.getElementById('log-holder')
+                                log.scrollTop = log.scrollHeight
+                            })
+                            break
+                        }
+                    },
+                })
             },
 
             assistClicked(player) {
