@@ -31,11 +31,8 @@ function enumMatchLines(buf, callback) {
 }
 
 class App {
-    constructor() {
-        this.game = new Module.Game()
-        this.ptr = Module._malloc(W * H * Uint8Array.BYTES_PER_ELEMENT)
-        this.ptr2 = Module._malloc(W * Uint32Array.BYTES_PER_ELEMENT)
-        this.rafId = -1
+    constructor(gameWorker) {
+        this.game = gameWorker
 
         this.createBoardElement()
 
@@ -43,6 +40,44 @@ class App {
             { com: false, assist: true },
             { com: true },
         ]
+
+        const upper = gameWorker.onmessage
+        gameWorker.onmessage = (e) => {
+            const data = e.data
+            switch (data.name) {
+            case 'legalActions':
+                {
+                    this.legalActions = data.legalActions
+                    if (!this.players[this.turn].com) {
+                        this.setActionButtons(this.legalActions)
+                    }
+                }
+                break
+            case 'handSearched':
+                {
+                    const action = data.action
+                    this.playHand(this.turn, action)
+                }
+                break
+            case 'boardUpdated':
+                {
+                    this.buf.set(data.buf)
+                    this.turn = data.turn
+                    this.isDone = data.isDone
+                    if (this.isDone) {
+                        this.winner = data.winner
+                    }
+                    this.setUiForNextState()
+                }
+                break
+            case 'updateGoodHand':
+                this.updateGoodHand(data.counts)
+                break
+            default:
+                upper(e)
+                break
+            }
+        }
     }
 
     setPlayer(index, params) {
@@ -53,11 +88,15 @@ class App {
         this.options = options
         this.step = 0
         this.handOrders.fill(-1)
-        this.game.start()
+        this.game.postMessage({ name: 'start' })
         for (const cell of this.boardCells) {
             cell.parentElement.classList.remove('win')
             cell.textContent = ''
         }
+
+        this.turn = 0
+        this.isDone = false
+        this.buf = new Uint8Array(W * H)
         this.setUiForNextState()
     }
 
@@ -70,45 +109,28 @@ class App {
             bar.style.height = '0'
         }
 
-        if (this.rafId >= 0) {
-            cancelAnimationFrame(this.rafId)
-            this.rafId = -1
-        }
-
-        if (this.game.isDone()) {
-            this.setActionButtons(0)
+        this.setActionButtons(0)
+        if (this.isDone) {
             this.showResult()
             return
         }
 
-        const turn = this.game.turn
+        const turn = this.turn
         if (!this.players[turn].com) {
-            const legalActions = this.game.getLegalActions()
-            this.setActionButtons(legalActions)
+            this.game.postMessage({ name: 'requestLegalActions' })
             status.textContent = `Player ${turn + 1}'s turn`
-            this.legalActions = legalActions
 
-            if (this.players[turn].assist) {
-                const f = () => {
-                    this.updateGoodHand(turn)
-                    this.rafId = requestAnimationFrame(f)
-                }
-                this.rafId = requestAnimationFrame(f)
-            }
+            if (this.players[turn].assist)
+                this.game.postMessage({ name: 'requestAssist', forDraw: this.players[turn].forDraw})
         } else {
             status.textContent = 'Thinking...'
-            this.setActionButtons(0)
-
-            setTimeout(() => {
-                const action = this.game.searchHand(this.players[turn].comTimeLimit, this.players[turn].forDraw)
-                this.playHand(turn, action)
-            }, 100)
+            this.game.postMessage({ name: 'searchAiHand', threshold: this.players[turn].comTimeLimit, forDraw: this.players[turn].forDraw })
         }
     }
 
     showResult() {
         const status = document.getElementById('status')
-        const winner = this.game.getWinner()
+        const winner = this.winner
         if (winner >= 0) {
             status.textContent = `Winner: ${winner + 1}`
         } else {
@@ -117,7 +139,7 @@ class App {
 
         // 揃ったラインを表示
         if (winner >= 0) {
-            const buf = Module.HEAPU8.subarray(this.ptr, this.ptr + (W * H * Uint8Array.BYTES_PER_ELEMENT))
+            const buf = this.buf
             enumMatchLines(buf, (r, c, dr, dc) => {
                 const u = buf[r * W + c]
                 for (;; r += dr, c += dc) {
@@ -131,8 +153,7 @@ class App {
     }
 
     showBoard() {
-        this.game.getBoard(this.ptr)
-        const buf = Module.HEAPU8.subarray(this.ptr, this.ptr + (W * H * Uint8Array.BYTES_PER_ELEMENT))
+        const buf = this.buf
 
         for (let i = 0; i < H; ++i) {
             for (let j = 0; j < W; ++j) {
@@ -162,7 +183,7 @@ class App {
     }
 
     playHand(turn, action) {
-        this.game.playHand(action)
+        this.game.postMessage({ name: 'playHand', action })
         this.printLog(turn, action)
 
         for (let i = 0; i < H; ++i) {
@@ -172,12 +193,10 @@ class App {
                 break
             }
         }
-
-        this.setUiForNextState()
     }
 
     onClickedAction(action) {
-        const turn = this.game.turn
+        const turn = this.turn
         this.playHand(turn, action)
     }
 
@@ -219,7 +238,7 @@ class App {
 
             const action = j
             column.addEventListener('click', () => {
-                if (this.game.isDone() || !(this.legalActions & (1 << action)))
+                if (this.isDone || !(this.legalActions & (1 << action)))
                     return
                 this.onClickedAction(action)
             })
@@ -235,11 +254,7 @@ class App {
     }
 
 
-    updateGoodHand(turn) {
-        const forDraw = this.players[turn].forDraw
-        this.game.proceedMcts(10000, forDraw, this.ptr2)
-        const counts = Module.HEAPU32.subarray(this.ptr2 >> 2, (this.ptr2 >> 2) + (Uint32Array.BYTES_PER_ELEMENT * W))
-
+    updateGoodHand(counts) {
         let sum = 0
         let maxval = 0
         let maxidx = 0
@@ -267,9 +282,11 @@ const ComTimeThresholds = [
 ]
 
 async function main() {
+    const gameWorker = new Worker("game_worker.js")
     let resolveAlpine = () => { throw 'error' }
+    let resolveGameWorker = () => { throw 'error' }
 
-    let proxy = null
+    let onReady = () => { throw 'error' }
     let app = null
     let step = 0
     globalThis.createInitialData = () => {
@@ -287,7 +304,7 @@ async function main() {
             log: '',
 
             init() {
-                proxy = this
+                onReady = () => this.ready = true
                 this.$watch('p0player', (value) => app.players[0].com = value === 'com')
                 this.$watch('p1player', (value) => app.players[1].com = value === 'com')
                 this.$watch('p0assist', (value) => app.players[0].assist = value)
@@ -326,18 +343,25 @@ async function main() {
         }
     }
 
+    gameWorker.onmessage = (e) => {
+        const data = e.data
+        switch (data.name) {
+        case 'initialized':
+            resolveGameWorker()
+            break
+        default:
+            console.error('Unknown message:', data)
+            break
+        }
+    }
+
     const promises = [
-        new Promise((resolve) => {
-            Module.onRuntimeInitialized = () => {
-                resolve()
-            }
-        }),
+        new Promise((resolve) => resolveGameWorker = resolve),
         new Promise((resolve) => resolveAlpine = resolve)
     ]
     await Promise.all(promises)
-    app = new App()
-    proxy.ready = true
+    app = new App(gameWorker)
+    onReady()
 }
 
-var Module = typeof Module != "undefined" ? Module : {}
 main()
