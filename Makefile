@@ -12,3 +12,13 @@ connectfour.js:	main.cpp 02_BitBoard.h
 
 cpptest:	cpptest.cpp 02_BitBoard.h
 	g++ -o cpptest -O2 -std=gnu++17 -DNDEBUG $<
+
+
+FILES:=index.html main.js style.css \
+	game_worker.js connectfour.js connectfour.wasm
+
+.PHONY:	release
+release:	connectfour.js
+	@rm -rf docs
+	@mkdir -p docs
+	cp $(FILES) docs/
