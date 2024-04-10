@@ -657,7 +657,7 @@ namespace montecarlo_bit
         Node(const ConnectFourStateByBitSet &state) : state_(state), w_(0), n_(0) {}
 
         // ノードの評価を行う
-        double evaluate(int for_draw, double CCC)
+        double evaluate(int for_draw, double CCC, int* playout_player)
         {
             double value;
             if (this->state_.isDone())
@@ -674,6 +674,7 @@ namespace montecarlo_bit
                     value = 0.5;
                     break;
                 }
+                *playout_player = this->state_.isFirst();
             } else
             if (this->child_nodes_.empty())
             {
@@ -682,18 +683,21 @@ namespace montecarlo_bit
                 if (this->n_ + 1 >= EXPAND_THRESHOLD)
                     this->expand();
                 value = (value - 0.5) * 0.99 + 0.5;
+                *playout_player = this->state_.isFirst();
             }
             else
             {
-                value = 1. - this->nextChildNode(for_draw, CCC).evaluate(-for_draw, CCC);
+                value = 1. - this->nextChildNode(for_draw, CCC).evaluate(-for_draw, CCC, playout_player);
                 value = (value - 0.5) * 0.99 + 0.5;
             }
 
-            double pvalue = 1.0 - value;
-            if (for_draw < 0)
-                pvalue = (pvalue > 0.5 ? 1.0 - pvalue : pvalue) * 2;
-            this->w_ += pvalue;
-            ++this->n_;
+            if (for_draw == 0 || *playout_player == this->state_.isFirst()) {
+                double pvalue = 1.0 - value;
+                if (for_draw < 0)
+                    pvalue = (pvalue > 0.5 ? 1.0 - pvalue : pvalue) * 2;
+                this->w_ += pvalue;
+                ++this->n_;
+            }
             return value;
         }
 
@@ -755,7 +759,8 @@ namespace montecarlo_bit
             {
                 break;
             }
-            root_node.evaluate(for_draw, CCC);
+            int playout_player = -1;
+            root_node.evaluate(for_draw, CCC, &playout_player);
         }
         auto legal_actions = state.legalActions();
 

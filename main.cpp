@@ -81,7 +81,8 @@ public:
         int for_draw = for_draw_ ? 1 : 0;
         double CCC = for_draw ? 3 : 1;
         for (int i = 0; i < count; ++i) {
-            node.evaluate(for_draw, CCC);
+            int playout_player = -1;
+            node.evaluate(for_draw, CCC, &playout_player);
         }
 
         int32_t* dst = reinterpret_cast<int32_t*>(ptr);
