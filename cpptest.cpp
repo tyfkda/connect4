@@ -71,7 +71,7 @@ static void dump_node(const Node* node, int recur) {
 
 static void dump_node_recur(const Node* node, int recur) {
     dump_node(node, recur);
-    if (!node->child_nodes_.empty() && recur < 2) {
+    if (!node->child_nodes_.empty() && recur < 10) {
         int next_recur = recur + 1;
         const ConnectFourStateByBitSet& state = node->getState();
         const char *c = state.isFirst() ? u8"❌" : u8"🟢";
@@ -88,18 +88,12 @@ static void dump_node_recur(const Node* node, int recur) {
 
 int main() {
     static const char *table[] = {
-        // "..ox...",
-        // "..ox..x",
-        // "o.xx..o",
-        // "x.xox.x",
-        // "o.oxx.o",
-        // "oxoxo.o",
-        "..ox...",
-        "..oxx.x",
-        "o.xxo.o",
-        "x.xox.x",
-        "o.oxx.o",
-        "oxoxo.o",
+        "xxoxo..",
+        "oooxx.x",
+        "oxxxo.o",
+        "xooox.x",
+        "oxxxooo",
+        "xooxxxo",
     };
 
     State state;

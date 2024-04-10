@@ -620,7 +620,7 @@ namespace montecarlo_bit
         return legal_actions[mt_for_action() % (legal_actions.size())];
     }
     // ランダムプレイアウトをして勝敗スコアを計算する
-    double playout(ConnectFourStateByBitSet *state)
+    double playout(ConnectFourStateByBitSet *state, double mid)
     { // const&にすると再帰中にディープコピーが必要になるため、高速化のためポインタにする。(constでない参照でも可)
         switch (state->getWinningStatus())
         {
@@ -631,8 +631,12 @@ namespace montecarlo_bit
         case (WinningStatus::DRAW):
             return 0.5;
         default:
-            state->advance(randomActionBit(*state));
-            return 1. - playout(state);
+            {
+                state->advance(randomActionBit(*state));
+                double value = 1. - playout(state, mid);
+                value = (value - mid) * 0.99 + 0.5;
+                return value;
+            }
         }
     }
 
@@ -674,13 +678,15 @@ namespace montecarlo_bit
             if (this->child_nodes_.empty())
             {
                 ConnectFourStateByBitSet state_copy = this->state_;
-                value = playout(&state_copy);
+                value = playout(&state_copy, for_draw > 0 ? 0.5 : 1.0);
                 if (this->n_ + 1 >= EXPAND_THRESHOLD)
                     this->expand();
+                value = (value - 0.5) * 0.99 + 0.5;
             }
             else
             {
                 value = 1. - this->nextChildNode(for_draw, CCC).evaluate(-for_draw, CCC);
+                value = (value - 0.5) * 0.99 + 0.5;
             }
 
             double pvalue = 1.0 - value;
